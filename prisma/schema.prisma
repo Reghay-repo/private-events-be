@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Payment Status
+enum PaymentStatus {
+  SUCCEEDED
+  PENDING
+  FAILED
+}
+
+// Enums provide data consistency for key fields.
+enum Role {
+  PRO_USER
+  ADMIN
+}
+
+// Used by the Admin/AI to classify a user's seniority level.
+enum UserSeniority {
+  C_LEVEL
+  VP
+  DIRECTOR
+  MANAGER
+  INDIVIDUAL
+  OTHER
+}
+
+// Drives the entire application workflow.
+enum ParticipationStatus {
+  PENDING // Initial state after user applies
+  APPROVED // Admin approved, waiting for user to pay
+  REJECTED // Admin rejected
+  PAID // User has paid successfully
+  CONFIRMED // Final confirmation email sent
+}
+
+// --- Main Data Models ---
+
+model User {
+  id          String         @id @default(uuid())
+  email       String         @unique
+  password    String // Hashed password only
+  firstName   String?
+  lastName    String?
+  companyName String?
+  jobTitle    String? // e.g., "CEO", "Software Engineer"
+  role        Role           @default(PRO_USER)
+  seniority   UserSeniority? // Classified from jobTitle by Admin/AI
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  jobTitleDescription String?
+  // A User belongs to one Sector (for scoring).
+  sectorId            String?
+  sector              Sector? @relation(fields: [sectorId], references: [id])
+
+  // A User can apply to many events.
+  participationRequests ParticipationRequest[]
+}
+
+model Sector {
+  id   String @id @default(uuid())
+  name String @unique // "Fintech", "SaaS", etc. Admin-managed.
+
+  // A Sector has many Users.
+  users        User[]
+  // A Sector can be a target for many Events.
+  eventTargets EventTargetSector[]
+}
+
+model Event {
+  id              String   @id @default(uuid())
+  title           String
+  description     String?
+  city            String
+  eventDateTime   DateTime
+  maxParticipants Int
+  price           Float
+
+  // --- The "Promise" Metrics ---
+  // The GOAL for director presence, set by the Admin.
+  targetDirectorPercentage Int
+
+  // The GOAL for the sector mix, defined in the join table below.
+  targetSectors EventTargetSector[]
+
+  // An Event has many applicants.
+  participationRequests ParticipationRequest[]
+}
+
+// JOIN TABLE: Defines the target sector mix for a specific Event.
+// This is the core of the "Promise" for sector distribution.
+model EventTargetSector {
+  percentage Int // The GOAL percentage for this sector in this event.
+
+  // --- Relations ---
+  eventId  String
+  event    Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sectorId String
+  sector   Sector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  // A composite ID ensures a sector can only be listed once per event.
+  @@id([eventId, sectorId])
+}
+
+model ParticipationRequest {
+  id     String              @id @default(uuid())
+  status ParticipationStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Relations ---
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // A participation request can have one payment.
+  payment Payment?
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  amount                Float
+  stripePaymentIntentId String        @unique // From your payment provider
+  status                PaymentStatus // "succeeded", "pending", etc.
+  createdAt             DateTime      @default(now())
+
+  // --- Relations ---
+  // Enforces a one-to-one relationship with a ParticipationRequest.
+  participationRequestId String               @unique
+  participationRequest   ParticipationRequest @relation(fields: [participationRequestId], references: [id], onDelete: Cascade)
+}

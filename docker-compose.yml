@@ -1,0 +1,44 @@
+
+services:
+  dev-db:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: private_events
+    networks:
+      - nestjs  
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U username"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  test-db:
+      image: postgres:14
+      restart: always
+      environment:
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_DB: test_events
+      networks:
+        - nestjs
+      volumes:
+        - pgtestdata:/var/lib/postgresql/data
+      ports:
+        - 5433:5432  # Expose on a different host port
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U testuser"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+volumes:
+  pgdata:
+  pgtestdata:
+networks:
+  nestjs:  
