@@ -5,6 +5,9 @@ import {
 } from '@nestjs/common';
 import { Prisma, type User } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import * as argon2 from 'argon2';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class UsersService {
@@ -33,6 +36,35 @@ export class UsersService {
         throw new NotFoundException(`User with ID "${id}" not found.`);
       }
       throw e;
+    }
+  }
+
+  async createUser(dto: CreateUserDto): Promise<User> {
+    const hashed = await argon2.hash(dto.password);
+
+    try {
+      return await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          password: hashed,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          companyName: dto.companyName,
+          jobTitle: dto.jobTitle,
+          role: dto.role,
+          seniority: dto.seniority,
+          sectorId: dto.sectorId,
+          jobTitleDescription: dto.jobTitleDescription,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BadRequestException('A user with this email already exists');
+      }
+      throw error;
     }
   }
 }
