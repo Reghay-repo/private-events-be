@@ -59,7 +59,7 @@ model User {
   role        Role           @default(PRO_USER)
   seniority   UserSeniority? // Classified from jobTitle by Admin/AI
   createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  updatedAt   DateTime?      @updatedAt
 
   jobTitleDescription String?
   // A User belongs to one Sector (for scoring).
@@ -71,9 +71,10 @@ model User {
 }
 
 model Sector {
-  id   String @id @default(uuid())
-  name String @unique // "Fintech", "SaaS", etc. Admin-managed.
-
+  id           String              @id @default(uuid())
+  name         String              @unique // "Fintech", "SaaS", etc. Admin-managed.
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime?           @updatedAt
   // A Sector has many Users.
   users        User[]
   // A Sector can be a target for many Events.
@@ -81,20 +82,17 @@ model Sector {
 }
 
 model Event {
-  id              String   @id @default(uuid())
-  title           String
-  description     String?
-  city            String
-  eventDateTime   DateTime
-  maxParticipants Int
-  price           Float
-
-  // --- The "Promise" Metrics ---
-  // The GOAL for director presence, set by the Admin.
+  id                       String              @id @default(uuid())
+  title                    String
+  description              String?
+  city                     String
+  eventDateTime            DateTime
+  maxParticipants          Int
+  price                    Float
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime?           @updatedAt
   targetDirectorPercentage Int
-
-  // The GOAL for the sector mix, defined in the join table below.
-  targetSectors EventTargetSector[]
+  targetSectors            EventTargetSector[]
 
   // An Event has many applicants.
   participationRequests ParticipationRequest[]
@@ -106,10 +104,12 @@ model EventTargetSector {
   percentage Int // The GOAL percentage for this sector in this event.
 
   // --- Relations ---
-  eventId  String
-  event    Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  sectorId String
-  sector   Sector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sectorId  String
+  sector    Sector    @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 
   // A composite ID ensures a sector can only be listed once per event.
   @@id([eventId, sectorId])
@@ -119,17 +119,17 @@ model ParticipationRequest {
   id     String              @id @default(uuid())
   status ParticipationStatus @default(PENDING)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 
-  // --- Relations ---
   userId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   eventId String
-  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   // A participation request can have one payment.
   payment Payment?
+
+  @@unique([userId, eventId])
 }
 
 model Payment {

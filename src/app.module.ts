@@ -3,6 +3,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
+import { SectorsModule } from './sectors/sectors.module';
+import { EventsModule } from './events/events.module';
+import { ParticipationModule } from './participation/participation.module';
 
 @Module({
   imports: [
@@ -12,6 +15,9 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    SectorsModule,
+    EventsModule,
+    ParticipationModule,
   ],
   controllers: [],
   providers: [],
